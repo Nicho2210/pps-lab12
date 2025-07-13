@@ -23,7 +23,14 @@ object Permutations extends App:
 
   def permutations[A](list: List[A]): LazyList[List[A]] = list match
     case Nil => LazyList(Nil)
-    case _ => ???
+    case _ => 
+      for
+        i <- list.indices to LazyList.iterableFactory
+        e = list(i)
+        r = removeAtPos(list, i)
+        pr <- permutations(r)
+      yield
+        e :: pr
     /* here a for comprehension that:
        - makes i range across all indexes of list (converted as stream)
        - assigns e to element at position i
