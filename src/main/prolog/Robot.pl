@@ -12,4 +12,4 @@ move(right, s(X, Y), s(X, Y2)):- Y < 3, Y2 is Y + 1.
 plan(N, T):- init(P), plan(N, T, P).
 plan(_, [], P):- goal(P), !.
 plan(0, [], _):- fail.
-plan(N, [D|T], P):- move(D, P, P1), N1 is N - 1, plan(N1, T, P1). % <-- Correzione qui!
+plan(N, [D|T], P):- move(D, P, P1), N1 is N - 1, plan(N1, T, P1).
