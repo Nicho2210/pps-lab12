@@ -2,6 +2,8 @@ package it.unibo.u12lab.code
 
 import alice.tuprolog.*
 
+import scala.io.Source
+
 object Scala2P:
 
   def extractTerm(solveInfo:SolveInfo, i:Integer): Term =
@@ -20,26 +22,34 @@ object Scala2P:
 
     goal => new Iterable[SolveInfo]{
 
-      override def iterator = new Iterator[SolveInfo]{
+      override def iterator: Iterator[SolveInfo] = new Iterator[SolveInfo]{
         var solution: Option[SolveInfo] = Some(engine.solve(goal))
 
-        override def hasNext = solution.isDefined &&
+        override def hasNext: Boolean = solution.isDefined &&
                               (solution.get.isSuccess || solution.get.hasOpenAlternatives)
 
-        override def next() =
+        override def next(): SolveInfo =
           try solution.get
           finally solution = if (solution.get.hasOpenAlternatives) Some(engine.solveNext()) else None
       }
     }.to(LazyList)
 
 
-  def solveWithSuccess(engine: Term => LazyList[SolveInfo], goal: Term): Boolean =
-    engine(goal).map(_.isSuccess).headOption == Some(true)
+  def solveWithSuccess(engine: Term => LazyList[SolveInfo], goal: Term): Boolean = 
+    engine(goal).map(_.isSuccess).headOption.contains(true)
 
   def solveOneAndGetTerm(engine: Term => LazyList[SolveInfo], goal: Term, term: String): Term =
     engine(goal).headOption.map(extractTerm(_,term)).get
 
-
+  def loadPrologTheory(path: String): String = 
+    try 
+      val source = Source fromFile path
+      val content = source.mkString
+      source.close()
+      content 
+    catch 
+      case e: Exception => println(s"Errore nel caricamento del file $path: ${e.getMessage}"); throw e
+  
 object TryScala2P extends App:
   import Scala2P.{*, given}
 
