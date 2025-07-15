@@ -21,6 +21,7 @@ case class RobotState(position: Pos = Pos(0, 0),
 
 object RobotGUI extends SimpleSwingApplication:
 
+  private val INITIAL_MAX_MOVES = 6
   //Grid
   private val GRID_SIZE: Int = 4
   private val CELL_SIZE: Int = 80
@@ -28,12 +29,25 @@ object RobotGUI extends SimpleSwingApplication:
   private val GRID_PIXEL_HEIGHT: Int = GRID_SIZE * CELL_SIZE
 
   //GUI constants
-  private val OFFSET: Int = 50
-  private val WINDOW_WIDTH: Int = GRID_PIXEL_WIDTH + OFFSET * 2
-  private val WINDOW_HEIGHT: Int = GRID_PIXEL_HEIGHT + OFFSET * 2
+  private val OFFSET: Int = 200
+  private val WINDOW_WIDTH: Int = GRID_PIXEL_WIDTH + OFFSET
+  private val WINDOW_HEIGHT: Int = GRID_PIXEL_HEIGHT + OFFSET
 
   //Robot
-  var robotState: RobotState = RobotState()
+  private var robotState: RobotState = RobotState()
+
+
+  //Util functions (prolog)
+  extension (l: LazyList[SolveInfo])
+    private def getOutputPositions: LazyList[Pos] = l map:
+      s => Pos(extractTerm(s, "X").toString.toInt, extractTerm(s, "Y").toString.toInt)
+    private def getFirstOutputPos: Pos = l.getOutputPositions.head
+
+  //Prolog
+  private val prologTheory: String = loadPrologTheory("src/main/prolog/Robot.pl")
+  val engine: Term => LazyList[SolveInfo] = mkPrologEngine(prologTheory)
+
+  def goalPosition: Pos = engine("goal(s(X,Y))").getFirstOutputPos
 
   override def top: Frame = new MainFrame:
     title = "Robot"
@@ -42,16 +56,16 @@ object RobotGUI extends SimpleSwingApplication:
     centerOnScreen()
     resizable = true
 
-    //Title
+    //Header Panel
     val northPanel: BorderPanel = new BorderPanel:
-      preferredSize = new Dimension(0, OFFSET)
-      minimumSize = new Dimension(0, OFFSET)
+      preferredSize = new Dimension(0, 50)
+      minimumSize = new Dimension(0, 50)
       val headerLabel: Label = new Label("Robot Planner - Lab 12"):
         font = new Font("Arial", java.awt.Font.BOLD, 18)
         horizontalAlignment = Alignment.Center
       layout(headerLabel) = BorderPanel.Position.Center
 
-    //Grid
+    //Grid Panel
     val gridPanel: Panel = new Panel:
       focusable = true
       override def paintComponent(g: Graphics2D): Unit = {
@@ -60,13 +74,27 @@ object RobotGUI extends SimpleSwingApplication:
         drawRobot(g, size.width, size.height)
       }
 
-    //Control
+    //Control Panel
     val controlPanel: BoxPanel = new BoxPanel(Orientation.Horizontal):
+      preferredSize = new Dimension(0, 50)
+      minimumSize = new Dimension(0, 50)
       val stepButton: Button = new Button(s"Step")
-      contents ++=
-        List(stepButton)
+      val generateButton: Button = new Button(s"Generate")
+      val inputMaxMoves = SpinnerNumberModel(INITIAL_MAX_MOVES, 0, 100, 1)
+      val componentInputMaxMoves: Component = new Component:
+        preferredSize = new Dimension(50, 25)
+        maximumSize = preferredSize
+        override lazy val peer = JSpinner(inputMaxMoves)
+      contents ++= List(Swing.HGlue, generateButton, Swing.HStrut(10), componentInputMaxMoves, Swing.HStrut(10),stepButton, Swing.HGlue)
 
-    //Util
+      //Listeners
+//      listenTo(generateButton)
+//      reactions += {
+//        case ButtonClicked(`generateButton`) =>
+//          generatePlans()
+//      }
+
+    //Util functions (drawing)
     def drawGrid(g: Graphics2D, panelWidth: Int, panelHeight: Int): Unit =
       g setColor Color.BLACK
       g setStroke new BasicStroke(2)
