@@ -3,15 +3,106 @@ package part4
 import it.unibo.u12lab.code.Scala2P.{*, given}
 import alice.tuprolog.{SolveInfo, Term}
 
+import java.awt.{BasicStroke, Color, Graphics2D}
 import scala.swing.*
 import scala.swing.event.*
 import javax.swing.{JSpinner, SpinnerNumberModel, Timer}
+import java.awt.geom.{Ellipse2D, Rectangle2D}
+
+type Command = String
+type Plan = LazyList[Command]
+case class Pos(x: Int, y: Int)
+
+case class RobotState(position: Pos = Pos(0, 0),
+                      currentPlan: Plan = LazyList(),
+                      currentStep: Int = 0,
+                      isExecuting: Boolean = false,
+                      color: Color = Color.ORANGE)
 
 object RobotGUI extends SimpleSwingApplication:
 
-  val WINDOW_WIDTH: Int = 400
-  val WINDOW_HEIGHT: Int = 400
+  //Grid
+  private val GRID_SIZE: Int = 4
+  private val CELL_SIZE: Int = 80
+  private val GRID_PIXEL_WIDTH: Int = GRID_SIZE * CELL_SIZE
+  private val GRID_PIXEL_HEIGHT: Int = GRID_SIZE * CELL_SIZE
+
+  //GUI constants
+  private val OFFSET: Int = 50
+  private val WINDOW_WIDTH: Int = GRID_PIXEL_WIDTH + OFFSET * 2
+  private val WINDOW_HEIGHT: Int = GRID_PIXEL_HEIGHT + OFFSET * 2
+
+  //Robot
+  var robotState: RobotState = RobotState()
 
   override def top: Frame = new MainFrame:
     title = "Robot"
     preferredSize = new Dimension(WINDOW_WIDTH, WINDOW_HEIGHT)
+    minimumSize = new Dimension(WINDOW_WIDTH, WINDOW_HEIGHT)
+    centerOnScreen()
+    resizable = true
+
+    //Title
+    val northPanel: BorderPanel = new BorderPanel:
+      preferredSize = new Dimension(0, OFFSET)
+      minimumSize = new Dimension(0, OFFSET)
+      val headerLabel: Label = new Label("Robot Planner - Lab 12"):
+        font = new Font("Arial", java.awt.Font.BOLD, 18)
+        horizontalAlignment = Alignment.Center
+      layout(headerLabel) = BorderPanel.Position.Center
+
+    //Grid
+    val gridPanel: Panel = new Panel:
+      focusable = true
+      override def paintComponent(g: Graphics2D): Unit = {
+        super.paintComponent(g)
+        drawGrid(g, size.width, size.height)
+        drawRobot(g, size.width, size.height)
+      }
+
+    //Control
+    val controlPanel: BoxPanel = new BoxPanel(Orientation.Horizontal):
+      val stepButton: Button = new Button(s"Step")
+      contents ++=
+        List(stepButton)
+
+    //Util
+    def drawGrid(g: Graphics2D, panelWidth: Int, panelHeight: Int): Unit =
+      g setColor Color.BLACK
+      g setStroke new BasicStroke(2)
+      val offsetX = (panelWidth - GRID_PIXEL_WIDTH) / 2
+      val offsetY = (panelHeight - GRID_PIXEL_HEIGHT) / 2
+      0 to GRID_SIZE foreach { i =>
+        val yPos = i * CELL_SIZE + offsetY
+        g drawLine (offsetX, yPos, GRID_PIXEL_WIDTH + offsetX, yPos)
+        val xPos = i * CELL_SIZE + offsetX
+        g drawLine (xPos, offsetY, xPos, GRID_PIXEL_HEIGHT + offsetY)
+      }
+
+    def drawRobot(g: Graphics2D, panelWidth: Int, panelHeight: Int): Unit =
+      g setColor robotState.color
+      val offsetX = (panelWidth - GRID_PIXEL_WIDTH) / 2
+      val offsetY = (panelHeight - GRID_PIXEL_HEIGHT) / 2
+      val robotDiameter = CELL_SIZE - 30
+      val robotCellOffsetX = (CELL_SIZE - robotDiameter) / 2
+      val robotCellOffsetY = (CELL_SIZE - robotDiameter) / 2
+      val robotDrawX = robotState.position.x * CELL_SIZE + offsetX + robotCellOffsetX
+      val robotDrawY = robotState.position.y * CELL_SIZE + offsetY + robotCellOffsetY
+
+      val robotCircle = new Ellipse2D.Double(
+        robotDrawX,
+        robotDrawY,
+        robotDiameter,
+        robotDiameter
+      )
+      g fill robotCircle
+      g setColor Color.BLACK
+      g setStroke new BasicStroke(2)
+      g draw robotCircle
+
+    //Drawing
+    contents = new BorderPanel:
+      import BorderPanel.Position
+      layout(northPanel) = Position.North
+      layout(gridPanel) = Position.Center
+      layout(controlPanel) = Position.South
