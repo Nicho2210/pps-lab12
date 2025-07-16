@@ -34,7 +34,6 @@ object RobotGUI extends SimpleSwingApplication:
   private var currentPlan: Plan = LazyList()
   private var plans: LazyList[Plan] = LazyList()
   private var currentStep: Int = 0
-  var isExecuting: Boolean = false
 
   //Prolog
   private val prologTheory: String = loadPrologTheory("src/main/prolog/Robot.pl")
@@ -95,11 +94,30 @@ object RobotGUI extends SimpleSwingApplication:
     val controlPanelCompletedPlan: BoxPanel = new BoxPanel(Orientation.Horizontal):
       preferredSize = new Dimension(0, 50)
       minimumSize = new Dimension(0, 50)
-      val nextPlanButton: Button = new Button(s"Step")
+      val nextPlanButton: Button = new Button(s"Pass to the next plan")
       val changeMaxMovesButton: Button = new Button(s"Insert new \"max moves\"")
       listenTo(nextPlanButton, changeMaxMovesButton)
       reactions += {
-        case ButtonClicked(`nextPlanButton`) => doStep()
+        case ButtonClicked(`nextPlanButton`) =>
+          if plans.nonEmpty then {
+            init()
+            currentPlan = plans.head
+            plans = plans.tail
+            mainContentPanel.layout(controlPanelStep) = BorderPanel.Position.South
+            mainContentPanel.revalidate()
+            mainContentPanel.repaint()
+          } else {
+            init()
+            Dialog.showMessage(title = s"No more plans", message = s"There are no more plans", messageType = Message.Info)
+            mainContentPanel.layout(controlPanelInput) = BorderPanel.Position.South
+            mainContentPanel.revalidate()
+            mainContentPanel.repaint()
+          }
+        case ButtonClicked(`changeMaxMovesButton`) =>
+          init()
+          mainContentPanel.layout(controlPanelInput) = BorderPanel.Position.South
+          mainContentPanel.revalidate()
+          mainContentPanel.repaint()
       }
       contents ++= List(Swing.HGlue, nextPlanButton, Swing.HStrut(10), changeMaxMovesButton, Swing.HGlue)
 
@@ -131,7 +149,7 @@ object RobotGUI extends SimpleSwingApplication:
       g setStroke new BasicStroke(2)
       g draw robotCircle
 
-    //Util functions (prolog)
+    //Util functions
     extension (l: LazyList[SolveInfo])
       def getOutputPositions: LazyList[Pos] = l map :
         s => Pos(extractTerm(s, "X").toString.toInt, extractTerm(s, "Y").toString.toInt)
@@ -139,18 +157,19 @@ object RobotGUI extends SimpleSwingApplication:
 
     def goalPosition: Pos = engine("goal(s(X,Y))").getFirstOutputPos
 
+    object NoPlansException extends Exception
     def generatePlans(maxMoves: Int): Unit =
       val results: LazyList[SolveInfo] = engine(s"plan($maxMoves, Plan)")
       if results.isEmpty then
         Dialog.showMessage(title = s"No plan found", message = s"Could not find a solution in $maxMoves steps", messageType = Message.Info)
       else
+        results foreach { r => if !r.isSuccess then throw NoPlansException }
         plans = results extractSolutionsOf "Plan" map {extractListFromTerm(_)}
         currentPlan = plans.head
         plans = plans.tail
         mainContentPanel.layout(controlPanelStep) = BorderPanel.Position.South
         mainContentPanel.revalidate()
         mainContentPanel.repaint()
-
 
     def doStep(): Unit =
       if currentStep < currentPlan.length then
@@ -162,6 +181,13 @@ object RobotGUI extends SimpleSwingApplication:
         println(s"$robotPosition")
         if currentStep >= currentPlan.length then
           Dialog.showMessage(title = s"Plan completed", message = s"You reached your goal position.", messageType = Message.Info)
+          mainContentPanel.layout(controlPanelCompletedPlan) = BorderPanel.Position.South
+          mainContentPanel.revalidate()
+          mainContentPanel.repaint()
+
+    def init(): Unit =
+      robotPosition = Pos(0, 0)
+      currentStep = 0
 
     //Drawing
     mainContentPanel = new BorderPanel:
