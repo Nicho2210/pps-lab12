@@ -12,7 +12,18 @@ object Scala2P:
   def extractTerm(solveInfo:SolveInfo, s:String): Term =
     solveInfo.getTerm(s)
 
+  def extractListFromTerm(t: Term): LazyList[String] = t match 
+    case struct: Struct if struct.getName == "." => 
+      LazyList((struct getArg 0).toString) ++ extractListFromTerm(struct getArg 1)
+    case v: Var => extractListFromTerm(v.getTerm)
+    case _ => LazyList.empty
+  
+  extension (solutions: LazyList[SolveInfo]) 
+    def extractSolutionsOf(target: String): LazyList[String] = 
+      solutions map (extractTerm(_, s"$target"))
+      
   given Conversion[String, Term] = Term.createTerm(_)
+  given Conversion[Term, String]   = _.toString
   given Conversion[Seq[_], Term] =  _.mkString("[",",","]")
   given Conversion[String, Theory] = new Theory(_);
 
